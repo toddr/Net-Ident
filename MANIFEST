@@ -1,6 +1,6 @@
 Changes		revision history
 INSTALL		installation instructions
-Ident.pm	the module itself, contains pod
+Ident.pm.in	the module itself, contains pod, requires small fixup
 MANIFEST	this file
 Makefile.PL	feed to perl to get a makefile
 README		extract of the manpage, gives a brief overview

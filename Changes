@@ -1,5 +1,24 @@
 Revision history for Perl extension Net::Ident.
 
+1.10  Wed Jan 15 01:49:15 MET 1997
+	- Several bugfixes, and some slight interface changes:
+    	  - constructor now called `new' instead of `initconnect',
+            constructor now always succeeds, if something has gone
+            wrong in the constructor, all methods return undef (like
+            `getfh'), except for `geterror', which returns the error
+            message.
+	  - The recommended exported function is now `ident_lookup'
+            instead of `lookup'
+	  - Fixed a bug: now chooses O_NDELAY or O_NONBLOCK from
+            %Config, instead of hardcoding O_NDELAY (argh)
+	  - Adding a method to FileHandle would break in perl5.004, it
+            should get added in IO::Handle. Added intelligence in
+            Makefile.PL to detect that and choose the appropriate
+            package.
+	  - Miscellaneous pod fixes.
+          - Test script now actually tests multiple different things.
+
+
 1.10  Sat Jan 11 19:05:35 1997
 	- original version; created by h2xs 1.16. First release
 	  as a perl5 module, complete rewrite for perl5, based
