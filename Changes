@@ -1,0 +1,24 @@
+Revision history for Perl extension Net::Ident.
+
+1.10  Sat Jan 11 19:05:35 1997
+	- original version; created by h2xs 1.16. First release
+	  as a perl5 module, complete rewrite for perl5, based
+	  on rfc931.pl
+
+1.02  Fri Jan 20 18:20:32 1995
+        - Quite a big bugfix: "connection
+          refused" to the ident port would kill the perl process
+          with a SIGPIPE if the connect didn't immediately
+          signal it (ie. almost always on remote machines). Also
+          recognises the perl5 package separator :: now on fully
+          qualified descriptors. This is still perl4-compatible,
+          a perl5- only version would require a rewrite to make
+          it neater.  Fixed the constants normally found in .ph
+          files (but you shouldn't use those anyway).
+
+1.01  Some Novish evening 1994
+        - Removed a spurious perl5 -w complaint. First public release.
+	  Has been tested against perl 5.000 and perl 4.036.
+
+1.00  Somewhere in 1994
+        - First neat collection of dusty routines put in a package.

@@ -1,0 +1,8 @@
+Changes		revision history
+INSTALL		installation instructions
+Ident.pm	the module itself, contains pod
+MANIFEST	this file
+Makefile.PL	feed to perl to get a makefile
+README		extract of the manpage, gives a brief overview
+t/0use.t	script to test "use Net::Ident"
+t/ident.t	test script that actually make ident lookups

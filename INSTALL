@@ -1,0 +1,6 @@
+You should know the drill by now:
+
+   perl Makefile.PL
+   make
+   make test
+   make install

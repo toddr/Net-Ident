@@ -1,0 +1,29 @@
+NAME
+    Net::Ident - lookup the username on the remote end of a TCP/IP
+    connection
+
+SYNOPSIS
+     use Net::Ident;
+
+     $username = SOCKET->ident_lookup($timeout);
+     ($username, $opsys, $error) = SOCKET->ident_lookup($timeout);
+     
+     $obj = Net::Ident->initconnect(SOCKET, $timeout);
+     $fh = $obj->getfh;
+     $obj->query;
+     $status = $obj->ready;
+     $username = $obj->username;
+     ($username, $opsys, $error) = $obj->username;
+
+     use Net::Ident 'lookup';
+
+     $username = lookup(SOCKET, $timeout);
+     ($username, $opsys, $error) = lookup(SOCKET, $timeout);
+
+
+OVERVIEW
+    Net::Ident is a module that looks up the username on the remote side of
+    a TCP/IP connection through the ident (auth/tap) protocol described in
+    RFC1413 (which supersedes RFC931). Note that this requires the remote
+    site to run a daemon (often called identd) to provide the requested
+    information, so it is not always available for all TCP/IP connections.
