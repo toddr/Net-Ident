@@ -1,5 +1,5 @@
 # -*- Perl -*-
-# test the Net::Ident modem, which is a bitch, because you really
+# test the Net::Ident module, which is a bitch, because you really
 # need an ident daemon to test it, and then you usually get a connection
 # from a remote machine, and then ask for the username.
 # so what we do is try to make a connection to an ident daemon, on
@@ -9,27 +9,42 @@
 # to the internet, and if your localhost doesn't run an ident daemon,
 # then this script won't work. If you do know a machine that you can
 # currently reach, which runs an ident daemon, then put it's name or
-# IPnumber in the list below.
+# IPnumber in the 'hosts' file in the t/ directory.
+#
+# $Id: ident.t,v 1.12 1999/03/09 23:15:11 john Exp $
 
-require 5.002;
+require 5.004;
 
-use Net::Ident 'ident_lookup';
-use Socket;
+use Net::Ident qw(:fh ident_lookup);
 use FileHandle;
+use Socket;
 
-# add any hosts below that you think might be running an ident daemon.
-# this list also includes hosts that are not running an identd, to test
-# "connection refused" messages from the library.
-@hosts = qw(
-   pc.xs4all.nl
-   speed.xs4all.nl
-   xs4all.nl
-   fddi.mae-east.netcom.net
-   lysator.liu.se
-   nord-gw.nordu.net
-   netcom.com
-   127.0.0.1
-);
+# turn on full debugging, but prepend ``# '' to output to make it disappear in
+# non-verbose tests
+unless ( open(DEBUGFH, "|-") ) {
+    # child... do the stuff
+    $|++;
+    while ( <> ) {
+	s/^/# /;
+	print;
+    }
+    exit 0;
+}
+DEBUGFH->autoflush(1);
+*Net::Ident::STDDBG = *DEBUGFH;
+$Net::Ident::DEBUG = 2;
+
+# find hosts file
+my($hosts) = grep { -r } qw( t/hosts hosts ../t/hosts );
+my @hosts;
+if ( open(HOSTS, $hosts) ) {
+    @hosts = grep { !/^#/ } <HOSTS>;
+    chomp @hosts;
+    close HOSTS;
+}
+else {
+    @hosts = qw(127.0.0.1);
+}
 
 $SIG{ALRM} = sub { 0 };
 $| = 1;
@@ -49,6 +64,7 @@ foreach $host ( @hosts ) {
 	    alarm(0);
 	    print "# connected\n";
 	    $connok ||= $fh;
+	    $connokhost ||= $host;
 	}
 	else {
 	    $e = $!;
@@ -61,12 +77,13 @@ foreach $host ( @hosts ) {
 		print "# connecting to " . inet_ntoa($addr) . ":23\n";
 		$fh = new FileHandle;
 		socket($fh, PF_INET, SOCK_STREAM, $tcpproto) or
-		  bomb("socket: $!");
+		    bomb("socket: $!");
 		alarm(10);
 		if ( connect($fh, sockaddr_in(23, $addr)) ) {
 		    alarm(0);
 		    print "# connected\n";
 		    $connrefuse ||= $fh;
+		    $connrefusehost ||= $host;
 		}
 		else {
 		    print "# connect: $!\n";
@@ -82,8 +99,18 @@ foreach $host ( @hosts ) {
 }
 
 $tests = 1;
-$tests += 6 if $connok;
-$tests++ if $connrefuse;
+if ( $connok ) {
+    print "# Will run regular ident lookups by connecting to $connokhost\n";
+    $tests += 6;
+}
+if ( $connrefuse ) {
+    print "# Will run ``connection refused'' tests by connecting to ",
+	$connrefusehost, "\n";
+    $tests++;
+}
+if ( ! $connok && ! $connrefuse ) {
+    print "# WARNING: not a lot of testing to do without an identd to use!\n";
+}
 print "1..$tests\n";
 
 $i = 1;
@@ -137,7 +164,7 @@ if ( $connrefuse ) {
     print "# got: $error\n";
 }
 
-print "# try to get ident info on a something that's not a socket\n";
+print "# try to get ident info on a handle that's not a socket\n";
 $lookup = new Net::Ident STDERR, 30;
 
 print "not " unless $lookup &&
@@ -145,9 +172,3 @@ print "not " unless $lookup &&
 	  $lookup->geterror;
 print "ok $i\n"; $i++;
 print "# got: " . $lookup->geterror . "\n";
-
-
-
-
-    
-

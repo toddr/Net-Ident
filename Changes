@@ -1,6 +1,26 @@
 Revision history for Perl extension Net::Ident.
 
-1.10  Wed Jan 15 01:49:15 MET 1997
+1.20  Fri Aug 27 00:59:24 CEST 1999
+       - Public release
+       - Added a few more apache layouts to the Makefile.PL to autodetect.
+
+1.19  Mon Aug  2 22:50:21 CEST 1999
+       - Added the often asked for, long promised lookupFromInaddr method.
+       - No longer imports ident_lookup into package FileHandle by
+         default, unless you explicitly ask for it (or unless you
+         installed it that way during compile time for compatibility
+         reasons).
+       - Allow adding an ident_lookup method to the Apache::Connection
+         class, as a convenience for mod_perl script writers.
+       - Rewritten tests, included test for the Apache::Connection method
+         by actually launching apache and performing ident lookups from
+         within mod_perl.
+       - Moved selection of FileHandle/IO::Handle class out of the
+         Makefile.PL.  PAUSE/CPAN didn't really like modules that weren't
+         present in the distribution, and it didn't allow you to upgrade
+         your perl version underneath.
+
+1.11  Wed Jan 15 01:49:15 MET 1997
 	- Several bugfixes, and some slight interface changes:
     	  - constructor now called `new' instead of `initconnect',
             constructor now always succeeds, if something has gone

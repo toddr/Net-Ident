@@ -1,3 +1,6 @@
+# Net::Ident
+# $Id: Ident.pm,v 1.20 1999/08/26 22:58:06 john Exp $
+
 package Net::Ident;
 
 use strict;
@@ -8,18 +11,37 @@ use Carp;
 use Config;
 require Exporter;
 
-use vars qw(@ISA @EXPORT_OK $DEBUG $VERSION);
+use vars qw(@ISA @EXPORT_OK $DEBUG $VERSION %EXPORT_TAGS @EXPORT_FAIL
+    %EXPORT_HOOKS @EXPORT);
 
 @ISA = qw(Exporter);
-@EXPORT_OK = qw(ident_lookup lookup);
+@EXPORT_OK = qw(ident_lookup lookup lookupFromInAddr);
 
-$VERSION = '1.11';
+# EXPORT_HOOKS is a sortof Exporter extension. Whenever one of the keys
+# of this hash is imported as a "tag", the corresponding function is called
+%EXPORT_HOOKS = (
+    'fh' => \&_add_fh_method,
+    'apache' => \&_add_apache_method,
+    'debug' => \&_set_debug,
+);
 
-# Set this non-zero if you want debugging.
-$DEBUG = 0;
+# put the export hooks in the standard Exporter structures
+_export_hooks();
+# for compatibility mode, uncomment the next line @@ s/^#\s*// @@
+# @EXPORT = qw(_export_hook_fh);
+
+$VERSION = sprintf("%d.%02d", q$Revision: 1.20 $ =~ /: (\d+)\.(\d+)/);
+
+$DEBUG ||= 0;
+*STDDBG = *STDERR;
+
+sub _set_debug {
+    $DEBUG++;
+    print STDDBG "Debugging turned to level $DEBUG\n";
+}
 
 # protocol number for tcp.
-my $tcpproto = (getprotobyname('tcp'))[2];
+my $tcpproto = (getprotobyname('tcp'))[2] || 6;
 # get identd port (default to 113).
 my $identport = (getservbyname('ident', 'tcp'))[2] || 113;
 
@@ -33,20 +55,20 @@ sub _passfh ($) {
 
     # test if $fh is a reference. if it's not, we need to process...
     if ( !ref $fh ) {
-	print "passed fh: $fh is not a reference\n" if $DEBUG;
+	print STDDBG "passed fh: $fh is not a reference\n" if $DEBUG;
 	# check for fully qualified name
-	if ( $fh !~ /'|::/ ) { #'/){ # when will perl-mode grok /regexps/?
-	    print "$fh is not fully qualified\n" if $DEBUG;
+	if ( $fh !~ /'|::/ ) {
+	    print STDDBG "$fh is not fully qualified\n" if $DEBUG;
 	    # get our current package
 	    my $mypkg = (caller)[0];
-	    print "We are package $mypkg\n" if $DEBUG;
+	    print STDDBG "We are package $mypkg\n" if $DEBUG;
 	    # search for calling package
 	    my $depth = 1;
 	    my $otherpkg;
-	    $depth++ while ($otherpkg = caller($depth))[0] eq $mypkg;
-	    print "We are called from package $otherpkg\n" if $DEBUG;
+	    $depth++ while ( ($otherpkg = caller($depth)) eq $mypkg );
+	    print STDDBG "We are called from package $otherpkg\n" if $DEBUG;
 	    $fh = "${otherpkg}::$fh";
-	    print "passed fh now fully qualified: $fh\n" if $DEBUG;
+	    print STDDBG "passed fh now fully qualified: $fh\n" if $DEBUG;
 	}
 	# turn $fh into a reference to a $fh. we need to disable strict refs
 	no strict 'refs';
@@ -58,12 +80,11 @@ sub _passfh ($) {
 # create a Net::Ident object, and perform a non-blocking connect()
 # to the remote identd port.
 # class method, constructor
-sub new ($$;$) {
+sub new {
     my($class, $fh, $timeout) = @_;
-    my($localbind, $localip, $remotebind, $remoteip, $identbind, $e);
-    my $self = {};
+    my($localaddr, $remoteaddr);
 
-    print "Net::Ident::new fh=$fh, timeout=" .
+    print STDDBG "Net::Ident::new fh=$fh, timeout=" .
       (defined $timeout ? $timeout : "<undef>") . "\n"
 	if $DEBUG > 1;
 
@@ -76,30 +97,70 @@ sub new ($$;$) {
 	# assume that $fh is a connected socket of type SOCK_STREAM. If
 	# it isn't, you'll find out soon enough because one of these functions
 	# will return undef real fast.
-	$localbind = getsockname($fh) or die "= getsockname failed: $!\n";
-	($self->{localport}, $localip) = sockaddr_in($localbind);
+	$localaddr = getsockname($fh) or die "= getsockname failed: $!\n";
+
+	# get information about remote end of connection
+	$remoteaddr = getpeername($fh) or die "= getpeername failed: $!\n";
+    };
+    if ( $@ =~ /^= (.*)/ ) {
+	# here's the catch of the throw
+	# return false, try to preserve errno
+	local($!);
+	# we make a "fake" $self
+	my $self = {
+	    'state' => 'error',
+	    'error' => "Net::Ident::new: $1\n",
+	};
+	print STDDBG $self->{error} if $DEBUG;
+	# return our blessed $self
+	return bless $self, $class;
+    }
+    elsif ( $@ ) {
+	# something else went wrong. barf up completely.
+	confess($@);
+    }
+
+    # continue with the NewFromInAddr constructor
+    $class->newFromInAddr($localaddr, $remoteaddr, $timeout);
+}
+
+sub newFromInAddr {
+    my($class, $localaddr, $remoteaddr, $timeout) = @_;
+    my $e;
+    my $self = {};
+
+    print STDDBG "Net::Ident::newFromInAddr localaddr=",
+	sub { inet_ntoa($_[1]) . ":$_[0]" }->(sockaddr_in($localaddr)),
+	", remoteaddr=",
+	sub { inet_ntoa($_[1]) . ":$_[0]" }->(sockaddr_in($remoteaddr)),
+	", timeout=", 
+        defined $timeout ? $timeout : "<undef>",
+	"\n"
+	if $DEBUG > 1;
+
+    eval {
+	# unpack addresses and store in
+	my($localip, $remoteip);
+	($self->{localport}, $localip) = sockaddr_in($localaddr);
+	($self->{remoteport}, $remoteip) = sockaddr_in($remoteaddr);
 
 	# create a local binding port. We cannot bind to INADDR_ANY, it has
 	# to be bind (bound?) to the same IP address as the connection we're
 	# interested in on machines with multiple IP addresses
-	$localbind = sockaddr_in(0, $localip);
-
-	# get information about remote end of connection
-	$remotebind = getpeername($fh) or die "= getpeername failed: $!\n";
-	($self->{remoteport}, $remoteip) = sockaddr_in($remotebind);
+	my $localbind = sockaddr_in(0, $localip);
 
 	# store max time
 	$self->{maxtime} = defined($timeout) ? time + $timeout : undef;
 
 	# create a remote connect point
-	$identbind = sockaddr_in($identport, $remoteip);
+	my $identbind = sockaddr_in($identport, $remoteip);
 
 	# create a new FileHandle
 	$self->{fh} = new FileHandle;
 
 	# create a stream socket.
 	socket($self->{fh}, PF_INET, SOCK_STREAM, $tcpproto) or
-	  die "= socket failed: $!\n";
+	    die "= socket failed: $!\n";
 
 	# bind it to the same IP number as the local end of THESOCK
 	bind($self->{fh}, $localbind) or die "= bind failed: $!\n";
@@ -107,7 +168,7 @@ sub new ($$;$) {
 	# make it a non-blocking socket
 	fcntl($self->{fh}, F_SETFL, $NONBLOCK) or die "= fcntl failed: $!\n";
 
-	# connect it to the remote identd port, this can return EINPROGRESS
+	# connect it to the remote identd port, this can return EINPROGRESS.
 	# for some reason, reading $! twice doesn't work as it should
 	connect($self->{fh}, $identbind) or ($e=$!) =~ /in progress/ or
 	  die "= connect failed: $e\n";
@@ -117,7 +178,7 @@ sub new ($$;$) {
 	# return false, try to preserve errno
 	local($!);
 	$self->{error} = "Net::Ident::new: $1\n";
-	print STDERR $self->{error} if $DEBUG;
+	print STDDBG $self->{error} if $DEBUG;
 	# this deletes the FileHandle, which gets closed,
 	# so that might change errno
 	delete $self->{fh};
@@ -140,11 +201,11 @@ sub new ($$;$) {
 
 # send the query to the remote daemon.
 # object method
-sub query ($) {
+sub query {
     my($self) = @_;
     my($wmask, $timeout, $emask, $fileno, $err, $query);
 
-    print STDERR "Net::Ident::query\n" if $DEBUG > 1;
+    print STDDBG "Net::Ident::query\n" if $DEBUG > 1;
 
     # bomb out if no fh
     return undef unless $self->{fh};
@@ -191,7 +252,7 @@ sub query ($) {
 	# return false, try to preserve errno
 	local($!);
 	$self->{error} = "Net::Ident::query: $1\n";
-	print STDERR $self->{error} if $DEBUG;
+	print STDDBG $self->{error} if $DEBUG;
 	# this deletes the FileHandle, which gets closed,
 	# so that might change errno
 	delete $self->{fh};
@@ -214,15 +275,15 @@ sub query ($) {
 
 # read data, if any, and check if it's enough.
 # object method
-sub ready ($;$) {
+sub ready {
     my($self, $blocking) = @_;
     my($timeout, $rmask, $emask, $answer, $ret, $fileno);
 
-    print STDERR "Net::Ident::ready blocking=" .
+    print STDDBG "Net::Ident::ready blocking=" .
       ($blocking ? "true\n" : "false\n") if $DEBUG > 1;
 
     # perform the query if not already done.
-    if ( $self->{state} eq 'connect' ) {
+    if ( $self->{state} ne 'query' ) {
 	$self->query or return undef;
     }
     # exit immediately if ready returned 1 before.
@@ -272,7 +333,7 @@ sub ready ($;$) {
 		    # return success
 		    if ( $self->{answer} =~ /[\n\r]/ ) {
 			$self->{answer} =~ s/[\n\r].*//s;
-			print STDERR 
+			print STDDBG 
 			  "Net::Ident::ready received: $self->{answer}\n"
 			    if $DEBUG;
 			# close the socket to the remote identd
@@ -292,7 +353,7 @@ sub ready ($;$) {
 	# return undef, try to preserve errno
 	local($!);
 	$self->{error} = "Net::Ident::ready: $1\n";
-	print STDERR $self->{error} if $DEBUG;
+	print STDDBG $self->{error} if $DEBUG;
 	# this deletes the FileHandle, which gets closed,
 	# so that might change errno
 	delete $self->{fh};
@@ -309,12 +370,12 @@ sub ready ($;$) {
 
 # return the username from the rfc931 query return.
 # object method
-sub username ($) {
+sub username {
     my($self) = @_;
     my($remoteport, $localport, $port1, $port2, $replytype, $reply, $opsys,
 	  $userid, $error);
 
-    print "Net::Ident::username\n" if $DEBUG > 1;
+    print STDDBG "Net::Ident::username\n" if $DEBUG > 1;
     # wait for data, if necessary.
     return wantarray ? (undef, undef, $self->{error}) : undef
       unless $self->ready(1);
@@ -329,13 +390,13 @@ sub username ($) {
 	 ($self->{remoteport} != $port1) || ($self->{localport} != $port2) ) {
 	$self->{error} =
 	  "Net::Ident::username couldn't parse reply or port mismatch\n";
-	print STDERR $self->{error} if $DEBUG;
+	print STDDBG $self->{error} if $DEBUG;
 	return wantarray ? (undef, undef, $self->{error}) : undef;
     }
 
     # check for error return type
     if ( $replytype eq "ERROR" ) {
-	print "Net::Ident::username: lookup returned ERROR\n" if $DEBUG;
+	print STDDBG "Net::Ident::username: lookup returned ERROR\n" if $DEBUG;
 	$userid = undef;
 	$opsys = "ERROR";
 	($error = $reply) =~ s/\s+$//;
@@ -347,7 +408,7 @@ sub username ($) {
 		 ($reply =~ /\s*((?:[^\\:]+|\\.)*):(.*)$/) ) {
 	    # didn't parse properly, abort.
 	    $self->{error} = "Net::Ident::username: couldn't parse userid\n";
-	    print STDERR $self->{error} if $DEBUG;
+	    print STDDBG $self->{error} if $DEBUG;
 	    return wantarray ? (undef, undef, $self->{error}) : undef;
 	}
 
@@ -384,10 +445,10 @@ sub username ($) {
 
     # return the requested information, depending on whether in array context.
     if ( $DEBUG > 1 ) {
-	print "Net::Ident::username returns:\n";
-	print "userid = " . (defined $userid ? $userid : "<undef>") . "\n";
-	print "opsys = " . (defined $opsys ? $opsys : "<undef>") . "\n";
-	print "error = " . (defined $error ? $error : "<undef>") . "\n";
+	print STDDBG "Net::Ident::username returns:\n";
+	print STDDBG "userid = ", defined $userid ? $userid : "<undef>", "\n";
+	print STDDBG "opsys = ", defined $opsys ? $opsys : "<undef>", "\n";
+	print STDDBG "error = ", defined $error ? $error : "<undef>", "\n";
     }
     wantarray ? ($userid, $opsys, $error) : $userid;
 }
@@ -396,18 +457,36 @@ sub username ($) {
 # exportable subroutine, not a method
 sub lookup ($;$) {
     my($fh, $timeout) = @_;
-    my($self, $error);
 
-    print "Net::Ident::lookup fh=$fh, timeout=" .
-      (defined $timeout ? $timeout : "<undef>") . "\n"
+    print STDDBG "Net::Ident::lookup fh=$fh, timeout=",
+	defined $timeout ? $timeout : "<undef>",
+	"\n"
 	if $DEBUG > 1;
 
     Net::Ident->new($fh, $timeout)->username;
 }
 
+# do the entire rfc931 lookup from two in_addr structs
+sub lookupFromInAddr ($$;$) {
+    my($localaddr, $remoteaddr, $timeout) = @_;
+
+    print STDDBG "Net::Ident::lookupFromInAddr localaddr=",
+	sub { inet_ntoa($_[1]) . ":$_[0]" }->(sockaddr_in($localaddr)),
+	", remoteaddr=",
+	sub { inet_ntoa($_[1]) . ":$_[0]" }->(sockaddr_in($remoteaddr)),
+	", timeout=", 
+        defined $timeout ? $timeout : "<undef>",
+	"\n"
+	if $DEBUG > 1;
+
+    Net::Ident->newFromInAddr($localaddr, $remoteaddr, $timeout)->username;
+}
+
 # alias Net::Ident::ident_lookup to Net::Ident::lookup
 sub ident_lookup ($;$);
 *ident_lookup = \&lookup;
+# prevent "used only once" warning
+ident_lookup(0) if 0;
 
 # get the FileHandle ref from the object, to be used in an external select().
 # object method
@@ -425,14 +504,64 @@ sub geterror ($) {
     $self->{error};
 }
 
-package @FILEHANDLE@;
+# provide import magic
+sub _export_hooks () {
+    my($tag, $hook);
+    while ( ($tag, $hook) = each %EXPORT_HOOKS ) {
+	my $hookname = "_export_hook_$tag"; # pseudo-function name
+	$EXPORT_TAGS{$tag} = [$hookname];
+	push @EXPORT_OK, $hookname;
+	push @EXPORT_FAIL, $hookname;
+    }
+}
 
-# create an object-oriented calling point for Net::Ident::lookup.
-# object method for FileHandle
-sub ident_lookup ($;$) {
-    my($self, $timeout) = @_;
+# this is called whenever a function in @EXPORT_FAIL is imported.
+# simply calls the installed export hooks from %EXPORT_HOOKS, or
+# passes along the export_fail up the inheritance chain
+sub export_fail {
+    my $pkg = shift;
+    my $fail;
+    my @other;
+    foreach $fail ( @_ ) {
+	if ( $fail =~ /^_export_hook_(.*)$/ && $EXPORT_HOOKS{$1} ) {
+	    &{$EXPORT_HOOKS{$1}};
+	}
+	else {
+	    push @other, $fail;
+	}
+    }
+    if ( @other ) {
+	@other = SUPER::export_fail(@other);
+    }
+    @other;
+}
 
-    Net::Ident::lookup($self, $timeout);
+# add lookup method for FileHandle objects. Note that this relies on the
+# use FileHandle; 
+sub _add_fh_method {
+    # determine package to add method to
+    my $pkg = grep( /^IO::/, @FileHandle::ISA ) ? "IO::Handle" : "FileHandle";
+    # insert method in package. Arguments are already OK for std lookup
+    # turn off strict refs for this glob-mangling trick
+    no strict 'refs';
+    *{"${pkg}::ident_lookup"} = \&lookup;
+
+    print STDDBG "Added ${pkg}::ident_lookup method\n" if $DEBUG;
+}
+
+sub _add_apache_method {
+    # add method to Apache::Connection class
+    no strict 'refs';
+    *{"Apache::Connection::ident_lookup"} = sub {
+	my($self, $timeout) = @_;
+
+	print STDDBG "Apache::Connection::ident_lookup self=$self, ",
+	    "timeout=", defined $timeout ? $timeout : "<undef>", "\n"
+	    if $DEBUG > 1;
+	lookupFromInAddr($self->local_addr, $self->remote_addr, $timeout);
+    };
+
+    print STDDBG "Added Apache::Connection::ident_lookup method\n" if $DEBUG;
 }
 
 1;
@@ -447,12 +576,15 @@ Net::Ident - lookup the username on the remote end of a TCP/IP connection
 
  use Net::Ident;
  
- $username = SOCKET->ident_lookup($timeout);
- 
  $username = Net::Ident::lookup(SOCKET, $timeout);
+
+ $username = Net::Ident::lookupFromInAddr($localsockaddr,
+					   $remotesockaddr, $timeout);
  
  $obj = Net::Ident->new(SOCKET, $timeout);
- $obj->query;
+ $obj = Net::Ident->newFromInAddr($localsockaddr, $remotesockaddr,
+ 					$timeout);
+ $status = $obj->query;
  $status = $obj->ready;
  $username = $obj->username;
  ($username, $opsys, $error) = $obj->username;
@@ -462,6 +594,20 @@ Net::Ident - lookup the username on the remote end of a TCP/IP connection
  use Net::Ident 'ident_lookup';
  
  $username = ident_lookup(SOCKET, $timeout);
+
+ use Net::Ident 'lookupFromInAddr';
+
+ $username = lookupFromInAddr($localsockaddr, $remotesockaddr, $timeout);
+
+ use Net::Ident ':fh';
+
+ $username = SOCKET->ident_lookup($timeout);
+
+ use Net::Ident ':apache';
+
+ # my Apache $r;
+ $c = $r->connection;
+ $username = $c->ident_lookup($timeout);
 
 =head1 OVERVIEW
 
@@ -481,36 +627,100 @@ things while the lookup is proceeding.
 
 =head2 Simple Interface
 
-The simple interface comes in two varieties. An object oriented method
-call of a FileHandle object, and as a simple subroutine call. Other
-than the calling method, these routines behave exactly the same.
+The simple interface comes in four varieties. An object oriented method
+call of a FileHandle object, an object oriented method of an Apache::Connection
+object, and as one of two different simple subroutine calls. Other than the
+calling method, these routines behave exactly the same.
 
 =over 4
-
-=item C<ident_lookup SOCKET> [C<$timeout>]
-
-The B<Net::Ident> module extends the B<FileHandle> module with one
-extra method call, B<ident_lookup>. It assumes that the object (a
-FileHandle) it is operating on, is a connected TCP/IP socket,
-ie. something which is either B<connect()>ed or B<accept()>ed. This
-method takes one optional parameter: a timeout value in seconds.  If
-you don't specify a timeout, or an undef timeout, there will be no
-timeout. It's that simple.
 
 =item C<Net::Ident::lookup (SOCKET> [C<, $timeout>]C<)>
 
 B<Net::Ident::lookup> is an exportable function. However, due to the
 generic name of the B<lookup> function, it is recommended that you
 instead import the alias function B<Net::Ident::ident_lookup>. Both
-functions are exported through C<EXPORT_OK>, so you'll have to
+functions are exported through C<@EXPORT_OK>, so you'll have to
 explicitly ask for it if you want the function B<ident_lookup> to be
 callable from your program.
 
-You can pass the socket using either a string, which doesn't have to
-be qualified with a package name, or using the more modern FileHandle
-calling styles: as a glob or preferably a reference to a glob. As in
-the method call, the Socket has to be a connected TCP/IP socket, and
-the timeout is optional.
+You can pass the socket using either a string, which doesn't have to be
+qualified with a package name, or using the more modern FileHandle calling
+styles: as a glob or as a reference to a glob. The Socket has to be a
+connected TCP/IP socket, ie. something which is either B<connect()>ed
+or B<accept()>ed. The optional timeout parameter specifies a timeout
+in seconds. If you do not specify a timeout, or use a value of undef,
+there will be no timeout (apart from any default system timeouts like
+TCP connection timeouts).
+
+=item C<Net::Ident::lookupFromInAddr ($localaddr, $remoteaddr> [C<, $timeout>]C<)>
+
+B<Net::Ident::lookupFromInAddr> is an exportable function (via C<@EXPORT_OK>).
+The arguments are the local and remote address of a connection, in packed
+``sockaddr'' format (the kind of thing that C<getsockname> returns). The
+optional timeout value specifies a timeout in seconds, see also the
+description of the timeout value in the C<Net::Ident::lookup> section above.
+
+The given localaddr B<must> have the IP address of a local interface of
+the machine you're calling this on, otherwise an error will occur.
+
+You can use this function whenever you have a local and remote socket address,
+but no direct access to the socket itself. For example, because you are
+parsing the output of "netstat" and extracting socket address, or because you
+are writing a mod_perl script under apache (in that case, also see the
+Apache::Connection method below).
+
+=item C<ident_lookup SOCKET> [C<$timeout>]
+
+When you import the ``magic'' tag ':fh' using C<use Net::Ident ':fh';>,
+the B<Net::Ident> module extends the B<FileHandle> class with one
+extra method call, B<ident_lookup>. It assumes that the object (a
+FileHandle) it is operating on, is a connected TCP/IP socket,
+ie. something which is either B<connect()>ed or B<accept()>ed. The optional
+parameter specifies the timeout in seconds, just like the timeout parameter
+of the function calls above.
+
+=cut
+# add a paragraph about compatibility mode if appropriate. The non-breaking
+# spaces are to force a new paragraph.
+# @@12 s/^#// @@
+#
+#=pod
+#
+#S< >
+#
+#Adding the B<ident_lookup> method to the B<FileHandle> class used to be
+#automatic in previous version of B<Net::Ident>. During the installation
+#of this B<Net::Ident> package, the system administrator choose to install
+#it in a compatible way, meaning that on this machine, the B<ident_lookup>
+#method is automatically added if you use just C<use Net::Ident;>
+#
+#=cut
+# end of extra paragraph
+
+=pod
+
+S< >
+
+Some people do not like the way that ``proper'' object design is broken
+by letting one module add methods to another class. This is why, starting
+from version 1.20, you have to explicitly ask for this behaviour to occur.
+Personally, I this it's a compromise: if you want an object-oriented
+interface, then either you make a derived class, like a
+FileHandleThatCanPerformIdentLookups, and make sure all appropriate
+internal functions get wrappers that do the necessary re-blessing. Or,
+you simply extend the FileHandle class. And since Perl doesn't object to this
+(pun intended :), I find this an acceptable solution. But you might think
+otherwise.
+
+=item C<ident_lookup Apache::Connection> [C<$timeout>]
+
+When you import the ``magic'' tag ':apache' using C<use Net::Ident ':apache';>,
+the B<Net::Ident> module extends the B<Apache::Connection> class with one
+extra method call, B<ident_lookup>. This method takes one optional parameter:
+a timeout value in seconds.
+
+This is a similar convenience function as the FileHandle::ident_lookup method,
+to be used with mod_perl scripts under Apache.
 
 =back
 
@@ -522,7 +732,7 @@ What these functions return depends on the context:
 
 In scalar context, these functions return the remote username on
 success, or undef on error. "Error" is rather broad, it might mean:
-some network error occurred, my arguments are invalid, the remote site
+some network error occurred, function arguments are invalid, the remote site
 is not responding (in time) or is not running an ident daemon, or the
 remote site ident daemon says there's no user connected with that
 particular connection.
@@ -631,6 +841,11 @@ The timeout is I<not> implemented using C<alarm()>. In fact you can
 use C<alarm()> completely independant of this library, they do not
 interfere.
 
+=item C<newFromInAddr $localaddr, $remoteaddr, $timeout>
+
+Alternative constructor, that takes two packed sockaddr structures. Otherwise
+behaves identical to the C<new> constructor above.
+
 =item C<query $obj>
 
 This object method queries the remote rfc931 deamon, and blocks until
@@ -699,12 +914,44 @@ Jan-Pieter Cornet, <johnpc@xs4all.nl>
 
 =head1 COPYRIGHT
 
-Copyright (c) 1995, 1997 Jan-Pieter Cornet. All rights reserved. You
+Copyright (c) 1995, 1997, 1999 Jan-Pieter Cornet. All rights reserved. You
 can distribute and use this program under the same terms as Perl itself.
 
 =head1 REVISION HISTORY
 
 =over 4
+
+=item V1.20
+
+August 2, 1999. Finally implemented the long-asked-for lookupFromInAddr
+method. Other changes:
+
+=over 1
+
+=item *
+
+No longer imports ident_lookup into package FileHandle by default, unless you
+explicitly ask for it (or unless you installed it that way during compile time
+for compatibility reasons).
+
+=item *
+
+Allow adding an ident_lookup method to the Apache::Connection class, as a
+convenience for mod_perl script writers.
+
+=item *
+
+Rewritten tests, included test for the Apache::Connection method by actually
+launching apache and performing ident lookups from within mod_perl.
+
+=item *
+
+Moved selection of FileHandle/IO::Handle class out of the Makefile.PL. 
+PAUSE/CPAN didn't really like modules that weren't present in the
+distribution, and it didn't allow you to upgrade your perl version
+underneath.
+
+=back
 
 =item V1.11
 
@@ -712,34 +959,34 @@ Jan 15th, 1997. Several bugfixes, and some slight interface changes:
 
 =over 1
 
-=item -
+=item *
 
 constructor now called C<new> instead of C<initconnect>, constructor
 now always succeeds, if something has gone wrong in the constructor,
 all methods return undef (like C<getfh>), except for C<geterror>, which
 returns the error message.
 
-=item -
+=item *
 
 The recommended exported function is now C<ident_lookup> instead of
 C<lookup>
 
-=item -
+=item *
 
 Fixed a bug: now chooses O_NDELAY or O_NONBLOCK from %Config, instead
 of hardcoding O_NDELAY (argh)
 
-=item -
+=item *
 
 Adding a method to FileHandle would break in perl5.004, it should get
 added in IO::Handle. Added intelligence in Makefile.PL to detect that
 and choose the appropriate package.
 
-=item -
+=item *
 
 Miscellaneous pod fixes.
 
-=item -
+=item *
 
 Test script now actually tests multiple different things.
 
