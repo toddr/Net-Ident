@@ -2,7 +2,10 @@ Revision history for Perl extension Net::Ident.
 
 1.21 Fri Jun 11 01:00:00 CST 2010
     - Move sub around to fix prototyping bug.
-
+    - Remove broken ident hosts from list so tests don't break. Right now
+      i know of no working public ident hosts. Patches welcome!
+    - 
+   
 1.20  Fri Aug 27 00:59:24 CEST 1999
     - Public release
     - Added a few more apache layouts to the Makefile.PL to autodetect.

@@ -4,8 +4,11 @@
 # note that these tests actually rely on a common buglet in identd
 # implementations, in that they let you perform an ident lookup on
 # a connection that is incoming.
-pc.xs4all.nl
-xs4all.nl
-lyrix.xs4all.nl
-lysator.liu.se
+#
+# Right now we know of no ident servers on the internet that serve out. 
+# Patches welcome http://github.com/toddr/Net-Ident
 127.0.0.1
+#pc.xs4all.nl
+#xs4all.nl
+#lyrix.xs4all.nl
+#lysator.liu.se
