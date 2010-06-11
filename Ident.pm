@@ -9,6 +9,7 @@ use Fcntl;
 use FileHandle;
 use Carp;
 use Config;
+use Errno;
 require Exporter;
 
 use vars qw(@ISA @EXPORT_OK $DEBUG $VERSION %EXPORT_TAGS @EXPORT_FAIL
