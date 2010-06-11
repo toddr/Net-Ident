@@ -611,8 +611,35 @@ sub MY::post_initialize {
 
 # back to your regular scheduled MakeMaker
 WriteMakefile(
-    'NAME'	=> 'Net::Ident',
-    'VERSION_FROM' => 'Ident.pm', # finds $VERSION
-    'clean' =>
-	{FILES => "t/apache/conf/access.conf t/apache/conf/apache_config.pl t/apache/conf/httpd.conf t/apache/conf/srm.conf t/apache/logs/access_log t/apache/logs/error_log t/apache/perl/inc"},
+    NAME	=> 'Net::Ident',
+    ABSTRACT     => 'Lookup the username on the remote end of a TCP/IP connection',
+    AUTHOR       => 'Jan-Pieter Cornet <johnpc@xs4all.nl>',  
+    VERSION_FROM => 'Ident.pm', # finds $VERSION
+    PREREQ_PM    => {
+        Socket     => '0',
+        Fcntl      => '0',
+        FileHandle => '0',
+        Carp       => '0',
+        Config     => '0',
+        Exporter   => '0',
+        vars       => '0',
+    },
+    dist                => { COMPRESS => 'gzip -9f', SUFFIX => 'gz', },
+    clean =>    {
+            FILES => "Net-Ident-* t/apache/conf/access.conf t/apache/conf/apache_config.pl t/apache/conf/httpd.conf t/apache/conf/srm.conf t/apache/logs/access_log t/apache/logs/error_log t/apache/perl/inc"
+    },
+    META_MERGE  => {
+        build_requires => {
+            'Apache' => 0,  # For testing
+            'Apache::Constants' => 0,  # For testing
+            'IO::Socket',   # For testing
+        },
+        resources => {
+            license => 'http://dev.perl.org/licenses/',
+            homepage => 'http://wiki.github.com/toddr/Net-Ident/',
+#            bugtracker => 'https://rt.cpan.org/Dist/Display.html?Queue=Net-Ident',
+            repository => 'http://github.com/toddr/Net-Ident',
+#            MailingList => 'http://groups.google.com/group/perl-net-ident',
+        },
+    },
 );

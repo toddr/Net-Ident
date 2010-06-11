@@ -42,7 +42,7 @@ _export_hooks();
 # for compatibility mode, uncomment the next line @@ s/^#\s*// @@
 # @EXPORT = qw(_export_hook_fh);
 
-$VERSION = sprintf("%d.%02d", q$Revision: 1.20 $ =~ /: (\d+)\.(\d+)/);
+$VERSION = "1.21";
 
 $DEBUG ||= 0;
 *STDDBG = *STDERR;
