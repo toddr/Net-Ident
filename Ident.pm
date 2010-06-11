@@ -25,6 +25,18 @@ use vars qw(@ISA @EXPORT_OK $DEBUG $VERSION %EXPORT_TAGS @EXPORT_FAIL
     'debug' => \&_set_debug,
 );
 
+# provide import magic
+sub _export_hooks () {
+    my($tag, $hook);
+    while ( ($tag, $hook) = each %EXPORT_HOOKS ) {
+	my $hookname = "_export_hook_$tag"; # pseudo-function name
+	$EXPORT_TAGS{$tag} = [$hookname];
+	push @EXPORT_OK, $hookname;
+	push @EXPORT_FAIL, $hookname;
+    }
+}
+
+
 # put the export hooks in the standard Exporter structures
 _export_hooks();
 # for compatibility mode, uncomment the next line @@ s/^#\s*// @@
@@ -502,17 +514,6 @@ sub geterror ($) {
     my($self) = @_;
 
     $self->{error};
-}
-
-# provide import magic
-sub _export_hooks () {
-    my($tag, $hook);
-    while ( ($tag, $hook) = each %EXPORT_HOOKS ) {
-	my $hookname = "_export_hook_$tag"; # pseudo-function name
-	$EXPORT_TAGS{$tag} = [$hookname];
-	push @EXPORT_OK, $hookname;
-	push @EXPORT_FAIL, $hookname;
-    }
 }
 
 # this is called whenever a function in @EXPORT_FAIL is imported.
