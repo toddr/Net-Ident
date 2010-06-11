@@ -1,6 +1,6 @@
 --- #YAML:1.0
 name:               Net-Ident
-version:            1.21
+version:            1.22
 abstract:           Lookup the username on the remote end of a TCP/IP connection
 author:
     - Jan-Pieter Cornet <johnpc@xs4all.nl>
@@ -9,8 +9,6 @@ distribution_type:  module
 configure_requires:
     ExtUtils::MakeMaker:  0
 build_requires:
-    Apache:               0
-    Apache::Constants:    0
     ExtUtils::MakeMaker:  0
     IO::Socket:           ~
 requires:

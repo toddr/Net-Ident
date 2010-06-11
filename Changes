@@ -1,5 +1,7 @@
 Revision history for Perl extension Net::Ident.
 
+1.21 Fri Jun 11 09:00:00 CST 2010
+    - Remove Apache (mod_perl) as a dep for this module
 1.21 Fri Jun 11 01:00:00 CST 2010
     - Move sub around to fix prototyping bug.
     - Remove broken ident hosts from list so tests don't break. Right now

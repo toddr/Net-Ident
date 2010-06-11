@@ -630,8 +630,8 @@ WriteMakefile(
     },
     META_MERGE  => {
         build_requires => {
-            'Apache' => 0,  # For testing
-            'Apache::Constants' => 0,  # For testing
+#            'Apache' => 0,  # mod_perl is crazy hard to install. It's not a fair thing to require
+#            'Apache::Constants' => 0,  # mod_perl is crazy hard to install. It's not a fair thing to require
             'IO::Socket',   # For testing
         },
         resources => {
