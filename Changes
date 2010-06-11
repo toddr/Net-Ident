@@ -4,8 +4,10 @@ Revision history for Perl extension Net::Ident.
     - Move sub around to fix prototyping bug.
     - Remove broken ident hosts from list so tests don't break. Right now
       i know of no working public ident hosts. Patches welcome!
-    - Update Makefile.PL with new options and added META.yml
-   
+    - Update Makefile.PL with new options
+    - Add META.yml to module
+    - use %! to determine if error was EINPROGRESS to function in other languages
+
 1.20  Fri Aug 27 00:59:24 CEST 1999
     - Public release
     - Added a few more apache layouts to the Makefile.PL to autodetect.

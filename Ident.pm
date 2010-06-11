@@ -138,7 +138,6 @@ sub new {
 
 sub newFromInAddr {
     my($class, $localaddr, $remoteaddr, $timeout) = @_;
-    my $e;
     my $self = {};
 
     print STDDBG "Net::Ident::newFromInAddr localaddr=",
@@ -151,58 +150,61 @@ sub newFromInAddr {
 	if $DEBUG > 1;
 
     eval {
-	# unpack addresses and store in
-	my($localip, $remoteip);
-	($self->{localport}, $localip) = sockaddr_in($localaddr);
-	($self->{remoteport}, $remoteip) = sockaddr_in($remoteaddr);
-
-	# create a local binding port. We cannot bind to INADDR_ANY, it has
-	# to be bind (bound?) to the same IP address as the connection we're
-	# interested in on machines with multiple IP addresses
-	my $localbind = sockaddr_in(0, $localip);
-
-	# store max time
-	$self->{maxtime} = defined($timeout) ? time + $timeout : undef;
-
-	# create a remote connect point
-	my $identbind = sockaddr_in($identport, $remoteip);
-
-	# create a new FileHandle
-	$self->{fh} = new FileHandle;
-
-	# create a stream socket.
-	socket($self->{fh}, PF_INET, SOCK_STREAM, $tcpproto) or
-	    die "= socket failed: $!\n";
-
-	# bind it to the same IP number as the local end of THESOCK
-	bind($self->{fh}, $localbind) or die "= bind failed: $!\n";
-
-	# make it a non-blocking socket
-	fcntl($self->{fh}, F_SETFL, $NONBLOCK) or die "= fcntl failed: $!\n";
-
-	# connect it to the remote identd port, this can return EINPROGRESS.
-	# for some reason, reading $! twice doesn't work as it should
-	connect($self->{fh}, $identbind) or ($e=$!) =~ /in progress/ or
-	  die "= connect failed: $e\n";
+    	# unpack addresses and store in
+    	my($localip, $remoteip);
+    	($self->{localport}, $localip) = sockaddr_in($localaddr);
+    	($self->{remoteport}, $remoteip) = sockaddr_in($remoteaddr);
+    
+    	# create a local binding port. We cannot bind to INADDR_ANY, it has
+    	# to be bind (bound?) to the same IP address as the connection we're
+    	# interested in on machines with multiple IP addresses
+    	my $localbind = sockaddr_in(0, $localip);
+    
+    	# store max time
+    	$self->{maxtime} = defined($timeout) ? time + $timeout : undef;
+    
+    	# create a remote connect point
+    	my $identbind = sockaddr_in($identport, $remoteip);
+    
+    	# create a new FileHandle
+    	$self->{fh} = new FileHandle;
+    
+    	# create a stream socket.
+    	socket($self->{fh}, PF_INET, SOCK_STREAM, $tcpproto) or
+    	    die "= socket failed: $!\n";
+    
+    	# bind it to the same IP number as the local end of THESOCK
+    	bind($self->{fh}, $localbind) or die "= bind failed: $!\n";
+    
+    	# make it a non-blocking socket
+    	fcntl($self->{fh}, F_SETFL, $NONBLOCK) or die "= fcntl failed: $!\n";
+    
+    	# connect it to the remote identd port, this can return EINPROGRESS.
+    	# for some reason, reading $! twice doesn't work as it should
+    	connect($self->{fh}, $identbind) or $!{EINPROGRESS} or
+    	  die "= connect failed: $!\n";
     };
     if ( $@ =~ /^= (.*)/ ) {
-	# here's the catch of the throw
-	# return false, try to preserve errno
-	local($!);
-	$self->{error} = "Net::Ident::new: $1\n";
-	print STDDBG $self->{error} if $DEBUG;
-	# this deletes the FileHandle, which gets closed,
-	# so that might change errno
-	delete $self->{fh};
-	# do NOT return, so the constructor always succeeds
+    	# here's the catch of the throw
+    	# return false, try to preserve errno
+    	local($!);
+    	$self->{error} = "Net::Ident::new: $1\n";
+    	print STDDBG $self->{error} if $DEBUG;
+    	# this deletes the FileHandle, which gets closed,
+    	# so that might change errno
+    	delete $self->{fh};
+    	# do NOT return, so the constructor always succeeds
     }
     elsif ( $@ ) {
-	# something else went wrong. barf up completely.
-	confess($@);
+        # something else went wrong. barf up completely.
+	    confess($@);
     }
 
     # clear errno in case it contains EINPROGRESS
-    $! = 0 if ( $e && $e =~ /in progress/ );
+    if($!{EINPROGRESS}) {
+        $! = 0;
+        $!{EINPROGRESS} = 0;
+    }
 
     # mark the state of the connection
     $self->{state} = 'connect';
