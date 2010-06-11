@@ -18,3 +18,4 @@ t/apache/html/testapache.txt	simple .txt file to test basic apache ops
 t/apache/perl/testmodperl	script to test mod_perl operates OK
 t/apache/perl/testident		script to actually test ident within mod_perl
 t/apache/logs/.exists		Directory for the logfiles
+META.yml
