@@ -1,6 +1,6 @@
 --- #YAML:1.0
 name:               Net-Ident
-version:            1.22
+version:            1.23
 abstract:           Lookup the username on the remote end of a TCP/IP connection
 author:
     - Jan-Pieter Cornet <johnpc@xs4all.nl>

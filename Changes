@@ -1,6 +1,8 @@
 Revision history for Perl extension Net::Ident.
 
-1.21 Fri Jun 11 09:00:00 CST 2010
+1.23 Sun Jun 13 2010
+    - Setting values for read only tied hash %! is illegal. removing code.
+1.22 Fri Jun 11 09:00:00 CST 2010
     - Remove Apache (mod_perl) as a dep for this module
 1.21 Fri Jun 11 01:00:00 CST 2010
     - Move sub around to fix prototyping bug.

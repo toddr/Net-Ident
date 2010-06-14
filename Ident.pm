@@ -1,6 +1,3 @@
-# Net::Ident
-# $Id: Ident.pm,v 1.20 1999/08/26 22:58:06 john Exp $
-
 package Net::Ident;
 
 use strict;
@@ -43,7 +40,7 @@ _export_hooks();
 # for compatibility mode, uncomment the next line @@ s/^#\s*// @@
 # @EXPORT = qw(_export_hook_fh);
 
-$VERSION = "1.22";
+$VERSION = "1.23";
 
 $DEBUG ||= 0;
 *STDDBG = *STDERR;
@@ -202,10 +199,7 @@ sub newFromInAddr {
     }
 
     # clear errno in case it contains EINPROGRESS
-    if($!{EINPROGRESS}) {
-        $! = 0;
-        $!{EINPROGRESS} = 0;
-    }
+    $! = 0;
 
     # mark the state of the connection
     $self->{state} = 'connect';
