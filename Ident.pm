@@ -10,33 +10,33 @@ use Errno;
 require Exporter;
 
 use vars qw(@ISA @EXPORT_OK $DEBUG $VERSION %EXPORT_TAGS @EXPORT_FAIL
-    %EXPORT_HOOKS @EXPORT);
+  %EXPORT_HOOKS @EXPORT);
 
-@ISA = qw(Exporter);
+@ISA       = qw(Exporter);
 @EXPORT_OK = qw(ident_lookup lookup lookupFromInAddr);
 
 # EXPORT_HOOKS is a sortof Exporter extension. Whenever one of the keys
 # of this hash is imported as a "tag", the corresponding function is called
 %EXPORT_HOOKS = (
-    'fh' => \&_add_fh_method,
+    'fh'     => \&_add_fh_method,
     'apache' => \&_add_apache_method,
-    'debug' => \&_set_debug,
+    'debug'  => \&_set_debug,
 );
 
 # provide import magic
 sub _export_hooks () {
-    my($tag, $hook);
-    while ( ($tag, $hook) = each %EXPORT_HOOKS ) {
-	my $hookname = "_export_hook_$tag"; # pseudo-function name
-	$EXPORT_TAGS{$tag} = [$hookname];
-	push @EXPORT_OK, $hookname;
-	push @EXPORT_FAIL, $hookname;
+    my ( $tag, $hook );
+    while ( ( $tag, $hook ) = each %EXPORT_HOOKS ) {
+        my $hookname = "_export_hook_$tag";    # pseudo-function name
+        $EXPORT_TAGS{$tag} = [$hookname];
+        push @EXPORT_OK,   $hookname;
+        push @EXPORT_FAIL, $hookname;
     }
 }
 
-
 # put the export hooks in the standard Exporter structures
 _export_hooks();
+
 # for compatibility mode, uncomment the next line @@ s/^#\s*// @@
 # @EXPORT = qw(_export_hook_fh);
 
@@ -51,9 +51,10 @@ sub _set_debug {
 }
 
 # protocol number for tcp.
-my $tcpproto = (getprotobyname('tcp'))[2] || 6;
+my $tcpproto = ( getprotobyname('tcp') )[2] || 6;
+
 # get identd port (default to 113).
-my $identport = (getservbyname('ident', 'tcp'))[2] || 113;
+my $identport = ( getservbyname( 'ident', 'tcp' ) )[2] || 113;
 
 # what to use to make nonblocking sockets
 my $NONBLOCK = eval "&$Config{o_nonblock}";
@@ -61,28 +62,32 @@ my $NONBLOCK = eval "&$Config{o_nonblock}";
 # turn a filehandle passed as a string, or glob, into a ref
 # private subroutine
 sub _passfh ($) {
-    my($fh) = @_;
+    my ($fh) = @_;
 
     # test if $fh is a reference. if it's not, we need to process...
     if ( !ref $fh ) {
-	print STDDBG "passed fh: $fh is not a reference\n" if $DEBUG;
-	# check for fully qualified name
-	if ( $fh !~ /'|::/ ) {
-	    print STDDBG "$fh is not fully qualified\n" if $DEBUG;
-	    # get our current package
-	    my $mypkg = (caller)[0];
-	    print STDDBG "We are package $mypkg\n" if $DEBUG;
-	    # search for calling package
-	    my $depth = 1;
-	    my $otherpkg;
-	    $depth++ while ( ($otherpkg = caller($depth)) eq $mypkg );
-	    print STDDBG "We are called from package $otherpkg\n" if $DEBUG;
-	    $fh = "${otherpkg}::$fh";
-	    print STDDBG "passed fh now fully qualified: $fh\n" if $DEBUG;
-	}
-	# turn $fh into a reference to a $fh. we need to disable strict refs
-	no strict 'refs';
-	$fh = \*{$fh};
+        print STDDBG "passed fh: $fh is not a reference\n" if $DEBUG;
+
+        # check for fully qualified name
+        if ( $fh !~ /'|::/ ) {
+            print STDDBG "$fh is not fully qualified\n" if $DEBUG;
+
+            # get our current package
+            my $mypkg = (caller)[0];
+            print STDDBG "We are package $mypkg\n" if $DEBUG;
+
+            # search for calling package
+            my $depth = 1;
+            my $otherpkg;
+            $depth++ while ( ( $otherpkg = caller($depth) ) eq $mypkg );
+            print STDDBG "We are called from package $otherpkg\n" if $DEBUG;
+            $fh = "${otherpkg}::$fh";
+            print STDDBG "passed fh now fully qualified: $fh\n" if $DEBUG;
+        }
+
+        # turn $fh into a reference to a $fh. we need to disable strict refs
+        no strict 'refs';
+        $fh = \*{$fh};
     }
     $fh;
 }
@@ -91,114 +96,118 @@ sub _passfh ($) {
 # to the remote identd port.
 # class method, constructor
 sub new {
-    my($class, $fh, $timeout) = @_;
-    my($localaddr, $remoteaddr);
+    my ( $class, $fh, $timeout ) = @_;
+    my ( $localaddr, $remoteaddr );
 
-    print STDDBG "Net::Ident::new fh=$fh, timeout=" .
-      (defined $timeout ? $timeout : "<undef>") . "\n"
-	if $DEBUG > 1;
+    print STDDBG "Net::Ident::new fh=$fh, timeout=" . ( defined $timeout ? $timeout : "<undef>" ) . "\n"
+      if $DEBUG > 1;
 
     # "try"
     eval {
-	defined $fh or die "= fh undef\n";
-	$fh = _passfh($fh);
+        defined $fh or die "= fh undef\n";
+        $fh = _passfh($fh);
 
-	# get information about this (the local) end of the connection. We
-	# assume that $fh is a connected socket of type SOCK_STREAM. If
-	# it isn't, you'll find out soon enough because one of these functions
-	# will return undef real fast.
-	$localaddr = getsockname($fh) or die "= getsockname failed: $!\n";
+        # get information about this (the local) end of the connection. We
+        # assume that $fh is a connected socket of type SOCK_STREAM. If
+        # it isn't, you'll find out soon enough because one of these functions
+        # will return undef real fast.
+        $localaddr = getsockname($fh) or die "= getsockname failed: $!\n";
 
-	# get information about remote end of connection
-	$remoteaddr = getpeername($fh) or die "= getpeername failed: $!\n";
+        # get information about remote end of connection
+        $remoteaddr = getpeername($fh) or die "= getpeername failed: $!\n";
     };
     if ( $@ =~ /^= (.*)/ ) {
-	# here's the catch of the throw
-	# return false, try to preserve errno
-	local($!);
-	# we make a "fake" $self
-	my $self = {
-	    'state' => 'error',
-	    'error' => "Net::Ident::new: $1\n",
-	};
-	print STDDBG $self->{error} if $DEBUG;
-	# return our blessed $self
-	return bless $self, $class;
+
+        # here's the catch of the throw
+        # return false, try to preserve errno
+        local ($!);
+
+        # we make a "fake" $self
+        my $self = {
+            'state' => 'error',
+            'error' => "Net::Ident::new: $1\n",
+        };
+        print STDDBG $self->{error} if $DEBUG;
+
+        # return our blessed $self
+        return bless $self, $class;
     }
-    elsif ( $@ ) {
-	# something else went wrong. barf up completely.
-	confess($@);
+    elsif ($@) {
+
+        # something else went wrong. barf up completely.
+        confess($@);
     }
 
     # continue with the NewFromInAddr constructor
-    $class->newFromInAddr($localaddr, $remoteaddr, $timeout);
+    $class->newFromInAddr( $localaddr, $remoteaddr, $timeout );
 }
 
 sub newFromInAddr {
-    my($class, $localaddr, $remoteaddr, $timeout) = @_;
+    my ( $class, $localaddr, $remoteaddr, $timeout ) = @_;
     my $self = {};
 
-    print STDDBG "Net::Ident::newFromInAddr localaddr=",
-	sub { inet_ntoa($_[1]) . ":$_[0]" }->(sockaddr_in($localaddr)),
-	", remoteaddr=",
-	sub { inet_ntoa($_[1]) . ":$_[0]" }->(sockaddr_in($remoteaddr)),
-	", timeout=", 
-        defined $timeout ? $timeout : "<undef>",
-	"\n"
-	if $DEBUG > 1;
+    print STDDBG "Net::Ident::newFromInAddr localaddr=", sub { inet_ntoa( $_[1] ) . ":$_[0]" }
+      ->( sockaddr_in($localaddr) ), ", remoteaddr=", sub { inet_ntoa( $_[1] ) . ":$_[0]" }
+      ->( sockaddr_in($remoteaddr) ), ", timeout=", defined $timeout ? $timeout : "<undef>", "\n"
+      if $DEBUG > 1;
 
     eval {
-    	# unpack addresses and store in
-    	my($localip, $remoteip);
-    	($self->{localport}, $localip) = sockaddr_in($localaddr);
-    	($self->{remoteport}, $remoteip) = sockaddr_in($remoteaddr);
-    
-    	# create a local binding port. We cannot bind to INADDR_ANY, it has
-    	# to be bind (bound?) to the same IP address as the connection we're
-    	# interested in on machines with multiple IP addresses
-    	my $localbind = sockaddr_in(0, $localip);
-    
-    	# store max time
-    	$self->{maxtime} = defined($timeout) ? time + $timeout : undef;
-    
-    	# create a remote connect point
-    	my $identbind = sockaddr_in($identport, $remoteip);
-    
-    	# create a new FileHandle
-    	$self->{fh} = new FileHandle;
-    
-    	# create a stream socket.
-    	socket($self->{fh}, PF_INET, SOCK_STREAM, $tcpproto) or
-    	    die "= socket failed: $!\n";
-    
-    	# bind it to the same IP number as the local end of THESOCK
-    	bind($self->{fh}, $localbind) or die "= bind failed: $!\n";
-    
-    	# make it a non-blocking socket
-    	if($^O ne 'MSWin32') {
-	    fcntl($self->{fh}, F_SETFL, $NONBLOCK) or die "= fcntl failed: $!\n";
-	}
-    
-    	# connect it to the remote identd port, this can return EINPROGRESS.
-    	# for some reason, reading $! twice doesn't work as it should
-    	connect($self->{fh}, $identbind) or $!{EINPROGRESS} or
-    	  die "= connect failed: $!\n";
-	$self->{fh}->blocking(0) if $^O eq 'MSWin32';
+        # unpack addresses and store in
+        my ( $localip, $remoteip );
+        ( $self->{localport},  $localip )  = sockaddr_in($localaddr);
+        ( $self->{remoteport}, $remoteip ) = sockaddr_in($remoteaddr);
+
+        # create a local binding port. We cannot bind to INADDR_ANY, it has
+        # to be bind (bound?) to the same IP address as the connection we're
+        # interested in on machines with multiple IP addresses
+        my $localbind = sockaddr_in( 0, $localip );
+
+        # store max time
+        $self->{maxtime} = defined($timeout) ? time + $timeout : undef;
+
+        # create a remote connect point
+        my $identbind = sockaddr_in( $identport, $remoteip );
+
+        # create a new FileHandle
+        $self->{fh} = new FileHandle;
+
+        # create a stream socket.
+        socket( $self->{fh}, PF_INET, SOCK_STREAM, $tcpproto )
+          or die "= socket failed: $!\n";
+
+        # bind it to the same IP number as the local end of THESOCK
+        bind( $self->{fh}, $localbind ) or die "= bind failed: $!\n";
+
+        # make it a non-blocking socket
+        if ( $^O ne 'MSWin32' ) {
+            fcntl( $self->{fh}, F_SETFL, $NONBLOCK ) or die "= fcntl failed: $!\n";
+        }
+
+        # connect it to the remote identd port, this can return EINPROGRESS.
+        # for some reason, reading $! twice doesn't work as it should
+        connect( $self->{fh}, $identbind )
+          or $!{EINPROGRESS}
+          or die "= connect failed: $!\n";
+        $self->{fh}->blocking(0) if $^O eq 'MSWin32';
     };
     if ( $@ =~ /^= (.*)/ ) {
-    	# here's the catch of the throw
-    	# return false, try to preserve errno
-    	local($!);
-    	$self->{error} = "Net::Ident::new: $1\n";
-    	print STDDBG $self->{error} if $DEBUG;
-    	# this deletes the FileHandle, which gets closed,
-    	# so that might change errno
-    	delete $self->{fh};
-    	# do NOT return, so the constructor always succeeds
+
+        # here's the catch of the throw
+        # return false, try to preserve errno
+        local ($!);
+        $self->{error} = "Net::Ident::new: $1\n";
+        print STDDBG $self->{error} if $DEBUG;
+
+        # this deletes the FileHandle, which gets closed,
+        # so that might change errno
+        delete $self->{fh};
+
+        # do NOT return, so the constructor always succeeds
     }
-    elsif ( $@ ) {
+    elsif ($@) {
+
         # something else went wrong. barf up completely.
-	    confess($@);
+        confess($@);
     }
 
     # clear errno in case it contains EINPROGRESS
@@ -214,8 +223,8 @@ sub newFromInAddr {
 # send the query to the remote daemon.
 # object method
 sub query {
-    my($self) = @_;
-    my($wmask, $timeout, $emask, $fileno, $err, $query);
+    my ($self) = @_;
+    my ( $wmask, $timeout, $emask, $fileno, $err, $query );
 
     print STDDBG "Net::Ident::query\n" if $DEBUG > 1;
 
@@ -224,55 +233,59 @@ sub query {
 
     # "try"
     eval {
-	$self->{state} eq 'connect' or die "= calling in the wrong order\n";
-	$fileno = fileno $self->{fh};
+        $self->{state} eq 'connect' or die "= calling in the wrong order\n";
+        $fileno = fileno $self->{fh};
 
-	# calculate the time left, abort if necessary. Note that $timeout
-	# is simply left undef if $self->{maxtime} is not defined
-	if ( defined($self->{maxtime}) &&
-	     ($timeout = $self->{maxtime} - time) < 0 ) {
-	    die "= Connection timed out\n";
-	}
+        # calculate the time left, abort if necessary. Note that $timeout
+        # is simply left undef if $self->{maxtime} is not defined
+        if ( defined( $self->{maxtime} )
+            && ( $timeout = $self->{maxtime} - time ) < 0 ) {
+            die "= Connection timed out\n";
+        }
 
-	# wait until the socket becomes writable.
-	$wmask = '';
-	vec($wmask, $fileno, 1) = 1;
-	scalar select(undef, $wmask, $emask = $wmask, $timeout) or
-	  die "= Connection timed out\n";
+        # wait until the socket becomes writable.
+        $wmask = '';
+        vec( $wmask, $fileno, 1 ) = 1;
+        scalar select( undef, $wmask, $emask = $wmask, $timeout )
+          or die "= Connection timed out\n";
 
-	# Check for errors via select (you never know)
-	vec($emask, $fileno, 1) and die "= connection error: $!\n";
+        # Check for errors via select (you never know)
+        vec( $emask, $fileno, 1 ) and die "= connection error: $!\n";
 
-	# fh must be writable now
-	vec($wmask, $fileno, 1) or die "= connection timed out or error: $!\n";
+        # fh must be writable now
+        vec( $wmask, $fileno, 1 ) or die "= connection timed out or error: $!\n";
 
-	# check for errors via getsockopt(SO_ERROR)
-	$err = getsockopt($self->{fh}, SOL_SOCKET, SO_ERROR);
-	if ( ! defined($err) || ($! = unpack('L', $err)) ) {
-	    die "= connect: $!\n";
-	}
+        # check for errors via getsockopt(SO_ERROR)
+        $err = getsockopt( $self->{fh}, SOL_SOCKET, SO_ERROR );
+        if ( !defined($err) || ( $! = unpack( 'L', $err ) ) ) {
+            die "= connect: $!\n";
+        }
 
-	# create the query, based on the remote port and the local port
-	$query = "$self->{remoteport},$self->{localport}\r\n";
-	# write the query. Ignore the chance that such a short
-	# write will be fragmented.
-	syswrite($self->{fh}, $query, length $query) == length $query or
-	  die "= fragmented write on socket: $!\n";
+        # create the query, based on the remote port and the local port
+        $query = "$self->{remoteport},$self->{localport}\r\n";
+
+        # write the query. Ignore the chance that such a short
+        # write will be fragmented.
+        syswrite( $self->{fh}, $query, length $query ) == length $query
+          or die "= fragmented write on socket: $!\n";
     };
     if ( $@ =~ /^= (.*)/ ) {
-	# here's the catch of the throw
-	# return false, try to preserve errno
-	local($!);
-	$self->{error} = "Net::Ident::query: $1\n";
-	print STDDBG $self->{error} if $DEBUG;
-	# this deletes the FileHandle, which gets closed,
-	# so that might change errno
-	delete $self->{fh};
-	return undef;
+
+        # here's the catch of the throw
+        # return false, try to preserve errno
+        local ($!);
+        $self->{error} = "Net::Ident::query: $1\n";
+        print STDDBG $self->{error} if $DEBUG;
+
+        # this deletes the FileHandle, which gets closed,
+        # so that might change errno
+        delete $self->{fh};
+        return undef;
     }
-    elsif ( $@ ) {
-	# something else went wrong. barf up completely.
-	confess($@);
+    elsif ($@) {
+
+        # something else went wrong. barf up completely.
+        confess($@);
     }
 
     # initialise empty answer to prevent uninitialised value warning
@@ -288,19 +301,19 @@ sub query {
 # read data, if any, and check if it's enough.
 # object method
 sub ready {
-    my($self, $blocking) = @_;
-    my($timeout, $rmask, $emask, $answer, $ret, $fileno);
+    my ( $self, $blocking ) = @_;
+    my ( $timeout, $rmask, $emask, $answer, $ret, $fileno );
 
-    print STDDBG "Net::Ident::ready blocking=" .
-      ($blocking ? "true\n" : "false\n") if $DEBUG > 1;
+    print STDDBG "Net::Ident::ready blocking=" . ( $blocking ? "true\n" : "false\n" ) if $DEBUG > 1;
 
     # perform the query if not already done.
     if ( $self->{state} ne 'query' ) {
-	$self->query or return undef;
+        $self->query or return undef;
     }
+
     # exit immediately if ready returned 1 before.
     elsif ( $self->{state} eq 'ready' ) {
-	return 1;
+        return 1;
     }
 
     # bomb out if no fh
@@ -308,72 +321,79 @@ sub ready {
 
     # "try"
     $ret = eval {
-	$fileno = fileno $self->{fh};
-	# while $blocking, but at least once...
-	do {
-	    # calculate the time left, abort if necessary.
-	    if ( defined($self->{maxtime}) &&
-		 ($timeout = $self->{maxtime} - time) < 0 ) {
-		die "= Timeout\n";
-	    }
-	    # zero timeout for non-blocking
-	    $timeout = 0 unless $blocking;
+        $fileno = fileno $self->{fh};
 
-	    # wait for something
-	    $rmask = '';
-	    vec($rmask, $fileno, 1) = 1;
-	    if ( select($rmask, undef, $emask = $rmask, $timeout) ) {
-		# something came in
-		vec($emask, $fileno, 1) and die "= error while reading: $!\n";
+        # while $blocking, but at least once...
+        do {
+            # calculate the time left, abort if necessary.
+            if ( defined( $self->{maxtime} )
+                && ( $timeout = $self->{maxtime} - time ) < 0 ) {
+                die "= Timeout\n";
+            }
 
-		# check for incoming data
-		if ( vec($rmask, $fileno, 1) ) {
-		    # try to read as much data as possible.
-		    $answer = '';
-		    defined sysread($self->{fh}, $answer, 1000) or
-		      die "= read returned error: $!\n";
+            # zero timeout for non-blocking
+            $timeout = 0 unless $blocking;
 
-		    # append incoming data to total received
-		    $self->{answer} .= $answer;
+            # wait for something
+            $rmask = '';
+            vec( $rmask, $fileno, 1 ) = 1;
+            if ( select( $rmask, undef, $emask = $rmask, $timeout ) ) {
 
-		    # check for max length
-		    length($self->{answer}) <= 1000 or
-		      die "= remote daemon babbling too much\n";
+                # something came in
+                vec( $emask, $fileno, 1 ) and die "= error while reading: $!\n";
 
-		    # if data contains a CR or LF, we are ready receiving.
-		    # strip everything after and including the CR or LF and
-		    # return success
-		    if ( $self->{answer} =~ /[\n\r]/ ) {
-			$self->{answer} =~ s/[\n\r].*//s;
-			print STDDBG 
-			  "Net::Ident::ready received: $self->{answer}\n"
-			    if $DEBUG;
-			# close the socket to the remote identd
-			close($self->{fh});
-			$self->{state} = 'ready';
-			return 1;
-		    }
-		}
-	    }
-	} while $blocking;
+                # check for incoming data
+                if ( vec( $rmask, $fileno, 1 ) ) {
 
-	# we don't block, but we didn't receive everything yet... return false.
-	0;
+                    # try to read as much data as possible.
+                    $answer = '';
+                    defined sysread( $self->{fh}, $answer, 1000 )
+                      or die "= read returned error: $!\n";
+
+                    # append incoming data to total received
+                    $self->{answer} .= $answer;
+
+                    # check for max length
+                    length( $self->{answer} ) <= 1000
+                      or die "= remote daemon babbling too much\n";
+
+                    # if data contains a CR or LF, we are ready receiving.
+                    # strip everything after and including the CR or LF and
+                    # return success
+                    if ( $self->{answer} =~ /[\n\r]/ ) {
+                        $self->{answer} =~ s/[\n\r].*//s;
+                        print STDDBG "Net::Ident::ready received: $self->{answer}\n"
+                          if $DEBUG;
+
+                        # close the socket to the remote identd
+                        close( $self->{fh} );
+                        $self->{state} = 'ready';
+                        return 1;
+                    }
+                }
+            }
+        } while $blocking;
+
+        # we don't block, but we didn't receive everything yet... return false.
+        0;
     };
     if ( $@ =~ /^= (.*)/ ) {
-	# here's the catch of the throw
-	# return undef, try to preserve errno
-	local($!);
-	$self->{error} = "Net::Ident::ready: $1\n";
-	print STDDBG $self->{error} if $DEBUG;
-	# this deletes the FileHandle, which gets closed,
-	# so that might change errno
-	delete $self->{fh};
-	return undef;
+
+        # here's the catch of the throw
+        # return undef, try to preserve errno
+        local ($!);
+        $self->{error} = "Net::Ident::ready: $1\n";
+        print STDDBG $self->{error} if $DEBUG;
+
+        # this deletes the FileHandle, which gets closed,
+        # so that might change errno
+        delete $self->{fh};
+        return undef;
     }
-    elsif ( $@ ) {
-	# something else went wrong. barf up completely.
-	confess($@);
+    elsif ($@) {
+
+        # something else went wrong. barf up completely.
+        confess($@);
     }
 
     # return the return value from the eval{}
@@ -383,127 +403,126 @@ sub ready {
 # return the username from the rfc931 query return.
 # object method
 sub username {
-    my($self) = @_;
-    my($remoteport, $localport, $port1, $port2, $replytype, $reply, $opsys,
-	  $userid, $error);
+    my ($self) = @_;
+    my (
+        $remoteport, $localport, $port1, $port2, $replytype, $reply, $opsys,
+        $userid,     $error
+    );
 
     print STDDBG "Net::Ident::username\n" if $DEBUG > 1;
+
     # wait for data, if necessary.
-    return wantarray ? (undef, undef, $self->{error}) : undef
+    return wantarray ? ( undef, undef, $self->{error} ) : undef
       unless $self->ready(1);
 
     # parse the received string, split it into parts.
-    ($port1, $port2, $replytype, $reply) =
-      ($self->{answer} =~
-       /^\s*(\d+)\s*,\s*(\d+)\s*:\s*(ERROR|USERID)\s*:\s*(.*)$/);
+    ( $port1, $port2, $replytype, $reply ) = ( $self->{answer} =~ /^\s*(\d+)\s*,\s*(\d+)\s*:\s*(ERROR|USERID)\s*:\s*(.*)$/ );
 
     # make sure the answer parsed properly, and that the ports are the same.
-    if ( ! defined($reply) ||
-	 ($self->{remoteport} != $port1) || ($self->{localport} != $port2) ) {
-	$self->{error} =
-	  "Net::Ident::username couldn't parse reply or port mismatch\n";
-	print STDDBG $self->{error} if $DEBUG;
-	return wantarray ? (undef, undef, $self->{error}) : undef;
+    if (   !defined($reply)
+        || ( $self->{remoteport} != $port1 )
+        || ( $self->{localport} != $port2 ) ) {
+        $self->{error} = "Net::Ident::username couldn't parse reply or port mismatch\n";
+        print STDDBG $self->{error} if $DEBUG;
+        return wantarray ? ( undef, undef, $self->{error} ) : undef;
     }
 
     # check for error return type
     if ( $replytype eq "ERROR" ) {
-	print STDDBG "Net::Ident::username: lookup returned ERROR\n" if $DEBUG;
-	$userid = undef;
-	$opsys = "ERROR";
-	($error = $reply) =~ s/\s+$//;
+        print STDDBG "Net::Ident::username: lookup returned ERROR\n" if $DEBUG;
+        $userid = undef;
+        $opsys  = "ERROR";
+        ( $error = $reply ) =~ s/\s+$//;
     }
     else {
-	# a normal reply, parse the opsys and userid. Note that the opsys may
-	# contain \ escaped colons, which is why the hairy regexp is necessary.
-	unless ( ($opsys, $userid) =
-		 ($reply =~ /\s*((?:[^\\:]+|\\.)*):(.*)$/) ) {
-	    # didn't parse properly, abort.
-	    $self->{error} = "Net::Ident::username: couldn't parse userid\n";
-	    print STDDBG $self->{error} if $DEBUG;
-	    return wantarray ? (undef, undef, $self->{error}) : undef;
-	}
+        # a normal reply, parse the opsys and userid. Note that the opsys may
+        # contain \ escaped colons, which is why the hairy regexp is necessary.
+        unless ( ( $opsys, $userid ) = ( $reply =~ /\s*((?:[^\\:]+|\\.)*):(.*)$/ ) ) {
 
-	# remove trailing whitespace, except backwhacked whitespaces from opsys
-	$opsys =~ s/([^\\])\s+$/$1/;
-	# un-backwhack opsys.
-	$opsys =~ s/\\(.)/$1/g;
+            # didn't parse properly, abort.
+            $self->{error} = "Net::Ident::username: couldn't parse userid\n";
+            print STDDBG $self->{error} if $DEBUG;
+            return wantarray ? ( undef, undef, $self->{error} ) : undef;
+        }
 
-	# in all cases is leading whitespace removed from the username, even
-	# though rfc1413 mentions that it shouldn't be done, current
-	# implementation practice dictates otherwise. What insane OS would
-	# use leading whitespace in usernames anyway...
-	$userid =~ s/^\s+//;
+        # remove trailing whitespace, except backwhacked whitespaces from opsys
+        $opsys =~ s/([^\\])\s+$/$1/;
 
-	# Test if opsys is "special": if it contains a charset definition,
-	# or if it is "OTHER". This means that it is rfc1413-like, instead
-	# of rfc931-like. (Why can't they make these RFCs non-conflicting??? ;)
-	# Note that while rfc1413 (the one that superseded rfc931) indicates
-	# that _any_ characters following the final colon are part of the
-	# username, current implementation practice inserts a space there,
-	# even "modern" identd daemons.
-	# Also, rfc931 specifically mentions escaping characters, while
-	# rfc1413 does not mention it (it isn't really necessary). Anyway,
-	# I'm going to remove trailing whitespace from userids, and I'm
-	# going to un-backwhack them, unless the opsys is "special".
-	unless ( $opsys =~ /,/ || $opsys eq 'OTHER' ) {
-	    # remove trailing whitespace, except backwhacked whitespaces.
-	    $userid =~ s/([^\\])\s+$/$1/;
-	    # un-backwhack
-	    $userid =~ s/\\(.)/$1/g;
-	}
-	$error = undef;
+        # un-backwhack opsys.
+        $opsys =~ s/\\(.)/$1/g;
+
+        # in all cases is leading whitespace removed from the username, even
+        # though rfc1413 mentions that it shouldn't be done, current
+        # implementation practice dictates otherwise. What insane OS would
+        # use leading whitespace in usernames anyway...
+        $userid =~ s/^\s+//;
+
+        # Test if opsys is "special": if it contains a charset definition,
+        # or if it is "OTHER". This means that it is rfc1413-like, instead
+        # of rfc931-like. (Why can't they make these RFCs non-conflicting??? ;)
+        # Note that while rfc1413 (the one that superseded rfc931) indicates
+        # that _any_ characters following the final colon are part of the
+        # username, current implementation practice inserts a space there,
+        # even "modern" identd daemons.
+        # Also, rfc931 specifically mentions escaping characters, while
+        # rfc1413 does not mention it (it isn't really necessary). Anyway,
+        # I'm going to remove trailing whitespace from userids, and I'm
+        # going to un-backwhack them, unless the opsys is "special".
+        unless ( $opsys =~ /,/ || $opsys eq 'OTHER' ) {
+
+            # remove trailing whitespace, except backwhacked whitespaces.
+            $userid =~ s/([^\\])\s+$/$1/;
+
+            # un-backwhack
+            $userid =~ s/\\(.)/$1/g;
+        }
+        $error = undef;
     }
 
     # return the requested information, depending on whether in array context.
     if ( $DEBUG > 1 ) {
-	print STDDBG "Net::Ident::username returns:\n";
-	print STDDBG "userid = ", defined $userid ? $userid : "<undef>", "\n";
-	print STDDBG "opsys = ", defined $opsys ? $opsys : "<undef>", "\n";
-	print STDDBG "error = ", defined $error ? $error : "<undef>", "\n";
+        print STDDBG "Net::Ident::username returns:\n";
+        print STDDBG "userid = ", defined $userid ? $userid : "<undef>", "\n";
+        print STDDBG "opsys = ",  defined $opsys  ? $opsys  : "<undef>", "\n";
+        print STDDBG "error = ",  defined $error  ? $error  : "<undef>", "\n";
     }
-    wantarray ? ($userid, $opsys, $error) : $userid;
+    wantarray ? ( $userid, $opsys, $error ) : $userid;
 }
 
 # do the entire rfc931 lookup in one blow.
 # exportable subroutine, not a method
 sub lookup ($;$) {
-    my($fh, $timeout) = @_;
+    my ( $fh, $timeout ) = @_;
 
-    print STDDBG "Net::Ident::lookup fh=$fh, timeout=",
-	defined $timeout ? $timeout : "<undef>",
-	"\n"
-	if $DEBUG > 1;
+    print STDDBG "Net::Ident::lookup fh=$fh, timeout=", defined $timeout ? $timeout : "<undef>", "\n"
+      if $DEBUG > 1;
 
-    Net::Ident->new($fh, $timeout)->username;
+    Net::Ident->new( $fh, $timeout )->username;
 }
 
 # do the entire rfc931 lookup from two in_addr structs
 sub lookupFromInAddr ($$;$) {
-    my($localaddr, $remoteaddr, $timeout) = @_;
+    my ( $localaddr, $remoteaddr, $timeout ) = @_;
 
-    print STDDBG "Net::Ident::lookupFromInAddr localaddr=",
-	sub { inet_ntoa($_[1]) . ":$_[0]" }->(sockaddr_in($localaddr)),
-	", remoteaddr=",
-	sub { inet_ntoa($_[1]) . ":$_[0]" }->(sockaddr_in($remoteaddr)),
-	", timeout=", 
-        defined $timeout ? $timeout : "<undef>",
-	"\n"
-	if $DEBUG > 1;
+    print STDDBG "Net::Ident::lookupFromInAddr localaddr=", sub { inet_ntoa( $_[1] ) . ":$_[0]" }
+      ->( sockaddr_in($localaddr) ), ", remoteaddr=", sub { inet_ntoa( $_[1] ) . ":$_[0]" }
+      ->( sockaddr_in($remoteaddr) ), ", timeout=", defined $timeout ? $timeout : "<undef>", "\n"
+      if $DEBUG > 1;
 
-    Net::Ident->newFromInAddr($localaddr, $remoteaddr, $timeout)->username;
+    Net::Ident->newFromInAddr( $localaddr, $remoteaddr, $timeout )->username;
 }
 
 # alias Net::Ident::ident_lookup to Net::Ident::lookup
 sub ident_lookup ($;$);
 *ident_lookup = \&lookup;
+
 # prevent "used only once" warning
 ident_lookup(0) if 0;
 
 # get the FileHandle ref from the object, to be used in an external select().
 # object method
 sub getfh ($) {
-    my($self) = @_;
+    my ($self) = @_;
 
     $self->{fh};
 }
@@ -511,7 +530,7 @@ sub getfh ($) {
 # get the last error message.
 # object method
 sub geterror ($) {
-    my($self) = @_;
+    my ($self) = @_;
 
     $self->{error};
 }
@@ -523,25 +542,27 @@ sub export_fail {
     my $pkg = shift;
     my $fail;
     my @other;
-    foreach $fail ( @_ ) {
-	if ( $fail =~ /^_export_hook_(.*)$/ && $EXPORT_HOOKS{$1} ) {
-	    &{$EXPORT_HOOKS{$1}};
-	}
-	else {
-	    push @other, $fail;
-	}
+    foreach $fail (@_) {
+        if ( $fail =~ /^_export_hook_(.*)$/ && $EXPORT_HOOKS{$1} ) {
+            &{ $EXPORT_HOOKS{$1} };
+        }
+        else {
+            push @other, $fail;
+        }
     }
-    if ( @other ) {
-	@other = SUPER::export_fail(@other);
+    if (@other) {
+        @other = SUPER::export_fail(@other);
     }
     @other;
 }
 
 # add lookup method for FileHandle objects. Note that this relies on the
-# use FileHandle; 
+# use FileHandle;
 sub _add_fh_method {
+
     # determine package to add method to
     my $pkg = grep( /^IO::/, @FileHandle::ISA ) ? "IO::Handle" : "FileHandle";
+
     # insert method in package. Arguments are already OK for std lookup
     # turn off strict refs for this glob-mangling trick
     no strict 'refs';
@@ -551,15 +572,15 @@ sub _add_fh_method {
 }
 
 sub _add_apache_method {
+
     # add method to Apache::Connection class
     no strict 'refs';
     *{"Apache::Connection::ident_lookup"} = sub {
-	my($self, $timeout) = @_;
+        my ( $self, $timeout ) = @_;
 
-	print STDDBG "Apache::Connection::ident_lookup self=$self, ",
-	    "timeout=", defined $timeout ? $timeout : "<undef>", "\n"
-	    if $DEBUG > 1;
-	lookupFromInAddr($self->local_addr, $self->remote_addr, $timeout);
+        print STDDBG "Apache::Connection::ident_lookup self=$self, ", "timeout=", defined $timeout ? $timeout : "<undef>", "\n"
+          if $DEBUG > 1;
+        lookupFromInAddr( $self->local_addr, $self->remote_addr, $timeout );
     };
 
     print STDDBG "Added Apache::Connection::ident_lookup method\n" if $DEBUG;
