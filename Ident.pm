@@ -175,12 +175,15 @@ sub newFromInAddr {
     	bind($self->{fh}, $localbind) or die "= bind failed: $!\n";
     
     	# make it a non-blocking socket
-    	fcntl($self->{fh}, F_SETFL, $NONBLOCK) or die "= fcntl failed: $!\n";
+    	if($^O ne 'MSWin32') {
+	    fcntl($self->{fh}, F_SETFL, $NONBLOCK) or die "= fcntl failed: $!\n";
+	}
     
     	# connect it to the remote identd port, this can return EINPROGRESS.
     	# for some reason, reading $! twice doesn't work as it should
     	connect($self->{fh}, $identbind) or $!{EINPROGRESS} or
     	  die "= connect failed: $!\n";
+	$self->{fh}->blocking(0) if $^O eq 'MSWin32';
     };
     if ( $@ =~ /^= (.*)/ ) {
     	# here's the catch of the throw
