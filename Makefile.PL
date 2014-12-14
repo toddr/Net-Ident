@@ -632,14 +632,14 @@ WriteMakefile(
         build_requires => {
 #            'Apache' => 0,  # mod_perl is crazy hard to install. It's not a fair thing to require
 #            'Apache::Constants' => 0,  # mod_perl is crazy hard to install. It's not a fair thing to require
-            'IO::Socket',   # For testing
+	    'Test::More',   # For Testing.
+            'IO::Socket',   # For Testing
         },
         resources => {
             license => 'http://dev.perl.org/licenses/',
             homepage => 'http://wiki.github.com/toddr/Net-Ident/',
 #            bugtracker => 'https://rt.cpan.org/Dist/Display.html?Queue=Net-Ident',
             repository => 'http://github.com/toddr/Net-Ident',
-#            MailingList => 'http://groups.google.com/group/perl-net-ident',
         },
     },
 );
