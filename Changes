@@ -1,5 +1,8 @@
 Revision history for Perl extension Net::Ident.
 
+1.24 Sun Dec 14 2014
+    - RT 79165 - Fix for Strawberry Perl
+    - Tidy code base for conformity of future patches
 1.23 Sun Jun 13 2010
     - Setting values for read only tied hash %! is illegal. removing code.
 1.22 Fri Jun 11 09:00:00 CST 2010
