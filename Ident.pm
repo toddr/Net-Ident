@@ -41,7 +41,7 @@ _export_hooks();
 # for compatibility mode, uncomment the next line @@ s/^#\s*// @@
 # @EXPORT = qw(_export_hook_fh);
 
-our $VERSION = "1.24";
+our $VERSION = "1.25";
 
 our $DEBUG = 0;
 *STDDBG = *STDERR;
