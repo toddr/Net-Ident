@@ -645,9 +645,7 @@ WriteMakefile(
         },
         resources => {
             license  => 'http://dev.perl.org/licenses/',
-            homepage => 'http://wiki.github.com/toddr/Net-Ident/',
-
-            #            bugtracker => 'https://rt.cpan.org/Dist/Display.html?Queue=Net-Ident',
+            bugtracker => 'http://github.com/toddr/Net-Ident/issues',
             repository => 'http://github.com/toddr/Net-Ident',
         },
     },
