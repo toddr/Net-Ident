@@ -1,6 +1,8 @@
 package Net::Ident;
 
 use strict;
+use warnings;
+
 use Socket;
 use Fcntl;
 use FileHandle;
@@ -9,15 +11,14 @@ use Config;
 use Errno;
 require Exporter;
 
-use vars qw(@ISA @EXPORT_OK $DEBUG $VERSION %EXPORT_TAGS @EXPORT_FAIL
-  %EXPORT_HOOKS @EXPORT);
-
-@ISA       = qw(Exporter);
-@EXPORT_OK = qw(ident_lookup lookup lookupFromInAddr);
+our @ISA       = qw(Exporter);
+our @EXPORT_OK = qw(ident_lookup lookup lookupFromInAddr);
+our @EXPORT_FAIL;
+our %EXPORT_TAGS;
 
 # EXPORT_HOOKS is a sortof Exporter extension. Whenever one of the keys
 # of this hash is imported as a "tag", the corresponding function is called
-%EXPORT_HOOKS = (
+our %EXPORT_HOOKS = (
     'fh'     => \&_add_fh_method,
     'apache' => \&_add_apache_method,
     'debug'  => \&_set_debug,
@@ -40,9 +41,9 @@ _export_hooks();
 # for compatibility mode, uncomment the next line @@ s/^#\s*// @@
 # @EXPORT = qw(_export_hook_fh);
 
-$VERSION = "1.24";
+our $VERSION = "1.24";
 
-$DEBUG ||= 0;
+our $DEBUG = 0;
 *STDDBG = *STDERR;
 
 sub _set_debug {
