@@ -860,7 +860,7 @@ this case, all methods will return C<undef> except for the C<geterror>
 method, wich will return the error message.
 
 The timeout is I<not> implemented using C<alarm()>. In fact you can
-use C<alarm()> completely independant of this library, they do not
+use C<alarm()> completely independent of this library, they do not
 interfere.
 
 =item C<newFromInAddr $localaddr, $remoteaddr, $timeout>
@@ -870,7 +870,7 @@ behaves identical to the C<new> constructor above.
 
 =item C<query $obj>
 
-This object method queries the remote rfc931 deamon, and blocks until
+This object method queries the remote rfc931 daemon, and blocks until
 the connection to the ident daemon is writable, if necessary (but you
 are supposed to make sure it is, of course). Returns true on success
 (or rather it returns the I<$obj> itself), or undef on error.
