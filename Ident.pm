@@ -39,7 +39,7 @@ sub _export_hooks () {
 _export_hooks();
 
 # for compatibility mode, uncomment the next line @@ s/^#\s*// @@
-# @EXPORT = qw(_export_hook_fh);
+# our @EXPORT = qw(_export_hook_fh);
 
 our $VERSION = "1.25";
 
